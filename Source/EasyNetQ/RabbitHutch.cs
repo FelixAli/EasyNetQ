@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 #if NETFX
 using System.Configuration;
 #endif
@@ -123,6 +124,80 @@ namespace EasyNetQ
         /// A new <see cref="RabbitBus"/> instance.
         /// </returns>
         public static IBus CreateBus(
+            string hostName = "127.0.0.1",
+            ushort hostPort = 5672,
+            string virtualHost = "/",
+            string username = "guest",
+            string password = "guest",
+            TimeSpan? requestedHeartbeat = null,
+            TimeSpan? timeout = null,
+            bool publisherConfirms = false,
+            bool persistentMessages = true,
+            TimeSpan? connectIntervalAttempt = null,
+            ushort prefetchCount = 50
+
+            )
+            {
+                Preconditions.CheckNotNull(hostName, "hostName");
+                Preconditions.CheckNotNull(virtualHost, "virtualHost");
+                Preconditions.CheckNotNull(username, "username");
+                Preconditions.CheckNotNull(password, "password");
+                if (requestedHeartbeat== null)
+                {    
+                   requestedHeartbeat = TimeSpan.FromSeconds(15); 
+                }
+                if (timeout == null)
+                {
+                   timeout = TimeSpan.FromSeconds(10);
+                }
+
+                if (connectIntervalAttempt == null)
+                {
+                    connectIntervalAttempt = TimeSpan.FromSeconds(5);
+                }
+
+
+
+
+
+
+            var connectionConfiguration = new ConnectionConfiguration
+            {
+                Hosts = new List<HostConfiguration>
+                        {
+                            new HostConfiguration { Host = hostName, Port = hostPort }
+                        },
+                Port = hostPort,
+                VirtualHost = virtualHost,
+                UserName = username,
+                Password = password,
+                RequestedHeartbeat = (TimeSpan)requestedHeartbeat,
+                Timeout = (TimeSpan)timeout,
+                PublisherConfirms = publisherConfirms,
+                PersistentMessages = persistentMessages,
+                ConnectIntervalAttempt =(TimeSpan) connectIntervalAttempt,
+
+                // prefetchCount determines how many messages will be allowed in the local in-memory queue
+                // setting to zero makes this infinite, but risks an out-of-memory exception.
+                // set to 50 based on this blog post:
+                // http://www.rabbitmq.com/blog/2012/04/25/rabbitmq-performance-measurements-part-2/
+                PrefetchCount = prefetchCount,
+
+            };
+            return CreateBus(connectionConfiguration, x => { });
+            }
+        public static IBus CreateBus(
+        ConnectionConfiguration connectionConfiguration)
+        {
+            Preconditions.CheckNotNull(connectionConfiguration.Hosts, "hostName");
+            Preconditions.CheckNotNull(connectionConfiguration.VirtualHost, "virtualHost");
+            Preconditions.CheckNotNull(connectionConfiguration.UserName, "username");
+            Preconditions.CheckNotNull(connectionConfiguration.Password, "password");
+
+            return CreateBus(connectionConfiguration, x=>{});
+        }
+
+        public static IBus CreateBus(
             string hostName,
             ushort hostPort,
             string virtualHost,
@@ -130,7 +205,9 @@ namespace EasyNetQ
             string password,
             TimeSpan requestedHeartbeat,
             Action<IServiceRegister> registerServices)
+
         {
+            Contract.Ensures(Contract.Result<IBus>() != null);
             Preconditions.CheckNotNull(hostName, "hostName");
             Preconditions.CheckNotNull(virtualHost, "virtualHost");
             Preconditions.CheckNotNull(username, "username");
@@ -146,8 +223,12 @@ namespace EasyNetQ
                 VirtualHost = virtualHost,
                 UserName = username,
                 Password = password,
-                RequestedHeartbeat = requestedHeartbeat
+                RequestedHeartbeat = requestedHeartbeat,
+
+
             };
+
+
             return CreateBus(connectionConfiguration, registerServices);
         }
 
